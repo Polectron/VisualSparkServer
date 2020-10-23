@@ -1,3 +1,5 @@
+import asyncio
+
 from visitors.execution_visitor import ExecutionVisitor
 
 
@@ -19,5 +21,6 @@ class NodeExecutor:
     async def run(self):
         leafs = await self.find_leafs()
         visitor = ExecutionVisitor(self.ctx, self.limit, self.websocket)
+
         for head in leafs:
             await visitor.visit(head, None)

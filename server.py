@@ -38,7 +38,7 @@ class QueryServer:
 
                 tree = [cn, fn, fn2, gb, ag, pn2, pn]
 
-                ne = NodeExecutor(self.ctx, tree, command["limit"], websocket)
+                ne = NodeExecutor(self.ctx, tree, int(command["limit"]), websocket)
                 await ne.run()
 
     def start_server(self):
@@ -48,6 +48,6 @@ class QueryServer:
 
 
 if __name__ == "__main__":
-    ctx = ctx = SparkSession.builder.getOrCreate()
+    ctx = SparkSession.builder.getOrCreate()
     server = QueryServer(ctx)
     server.start_server()

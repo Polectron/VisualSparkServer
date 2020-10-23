@@ -15,6 +15,12 @@ class ExecutionVisitor:
     def visit(self, node):
         pass
 
+    @visitor.when(LocalCSVSource)
+    async def visit(self, node: CSVSource, data):
+        if node.value is None:
+            node.value = self.ctx.read.format('csv').options(header=True, inferSchema=True,
+                                                             sep=node.separator).load(node.source)
+
     @visitor.when(CSVSource)
     async def visit(self, node: CSVSource, data):
         if node.value is None:
@@ -74,4 +80,7 @@ class ExecutionVisitor:
         await node.a.accept(self, data)
         v = list(map(lambda row: row.asDict(), node.a.value.limit(self.limit).collect()))
         message = {"type": "table", "id": node.id, "data": v}
-        await self.websocket.send(json.dumps(message))
+        if self.websocket is not None:
+            await self.websocket.send(json.dumps(message))
+        else:
+            print(json.dumps(message))

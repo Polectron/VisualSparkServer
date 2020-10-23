@@ -6,7 +6,7 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-websockets = "8.1"
-
-[requires]
-python_version = "3.8"
+websockets = "~=8.1"
+pyspark = "~=3.0.1"
+pyspark-stubs = "~=3.0.0.post1"
+jsonpickle = "~=1.4.1"

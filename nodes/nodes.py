@@ -84,6 +84,19 @@ class MaxNode(AbstractNode):
         return False
 
 
+class LocalCSVSource(AbstractNode):
+    def __init__(self, source, separator=","):
+        self.separator = separator
+        self.source = source
+        self.value = None
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
+
+    def is_leaf(self):
+        return False
+
+
 class CSVSource(AbstractNode):
     def __init__(self, source, separator=","):
         self.separator = separator
