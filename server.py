@@ -1,5 +1,4 @@
 import asyncio
-import os
 import urllib
 
 import websockets
@@ -39,14 +38,13 @@ class QueryServer:
 
                 tree = [cn, fn, fn2, gb, ag, pn2, pn]
 
-                self.websocket.send(json.dumps({"type": "info", "data": "running query"}))
+                await websocket.send(json.dumps({"type": "info", "data": "running query"}))
 
                 ne = NodeExecutor(self.ctx, tree, int(command["limit"]), websocket)
                 await ne.run()
 
     def start_server(self):
-        port = int(os.environ['PORT']) if "PORT" in os.environ else 8765
-        start_server = websockets.serve(self.run_query, "0.0.0.0", port)
+        start_server = websockets.serve(self.run_query, "0.0.0.0", 8765)
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
 
