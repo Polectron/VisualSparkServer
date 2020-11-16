@@ -23,4 +23,5 @@ class NodeExecutor:
         visitor = ExecutionVisitor(self.ctx, self.limit, self.websocket)
 
         for head in leafs:
+            print(f"visiting {head}")
             await visitor.visit(head, None)

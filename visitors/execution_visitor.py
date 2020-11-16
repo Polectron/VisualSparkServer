@@ -1,6 +1,8 @@
 import json
 import urllib.request
 
+from pyspark.sql import DataFrame
+
 from nodes.nodes import *
 from visitors import visitor
 
@@ -14,6 +16,15 @@ class ExecutionVisitor:
     @visitor.on('node')
     def visit(self, node):
         pass
+
+    @visitor.when(JDBCSource)
+    async def visit(self, node: JDBCSource, data):
+        if node.value is None:
+            # TODO: Add connection support for psql
+            db = node.url.split(":")[0]
+            node.value = self.ctx.read.jdbc(node.url, node.table,
+                                            properties={"driver": "com.mysql.cj.jdbc.Driver", "serverTimezone": "UTC",
+                                                        "user": node.user, "password": node.password})
 
     @visitor.when(LocalCSVSource)
     async def visit(self, node: CSVSource, data):
@@ -37,13 +48,13 @@ class ExecutionVisitor:
     @visitor.when(Aggregation)
     async def visit(self, node: Aggregation, data):
         if node.value is None:
-            await node.gd.accept(self, data)
+            await node.df.accept(self, data)
             cols = []
             for agg in node.aggs:
                 await agg.accept(self, data)
                 cols.append(agg.value)
 
-            node.value = node.gd.value.agg(*cols)
+            node.value = node.df.value.agg(*cols)
 
     @visitor.when(CountNode)
     async def visit(self, node: CountNode, data):
@@ -69,17 +80,31 @@ class ExecutionVisitor:
         if node.value is None:
             node.value = max(node.column)
 
+    @visitor.when(SumNode)
+    async def visit(self, node: AvgNode, data):
+        from pyspark.sql.functions import sum
+        if node.value is None:
+            node.value = sum(node.column)
+
     @visitor.when(FilterNode)
     async def visit(self, node: FilterNode, data):
         if node.value is None:
             await node.df.accept(self, data)
             node.value = node.df.value.filter(node.condition)
 
+    @visitor.when(SubtractionNode)
+    async def visit(self, node: SubtractionNode, data):
+        if node.value is None:
+            await node.df.accept(self, data)
+            await node.df2.accept(self, data)
+            node.value = node.df.value.subtract(node.df2.value)
+
     @visitor.when(TableNode)
     async def visit(self, node: TableNode, data):
-        await node.a.accept(self, data)
-        v = list(map(lambda row: row.asDict(), node.a.value.limit(self.limit).collect()))
+        await node.df.accept(self, data)
+        v = list(map(lambda row: row.asDict(), node.df.value.limit(self.limit).collect()))
         message = {"type": "table", "id": node.id, "data": v}
+
         if self.websocket is not None:
             await self.websocket.send(json.dumps(message))
         else:

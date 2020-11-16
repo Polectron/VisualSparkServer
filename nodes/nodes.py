@@ -12,8 +12,9 @@ class AbstractNode(ABC):
 
 
 class GroupBy(AbstractNode):
-    def __init__(self, df, sources):
-        self.df = df
+    def __init__(self, nid, sources):
+        self.id = nid
+        self.df = None
         self.sources = sources
         self.value = None
 
@@ -25,9 +26,10 @@ class GroupBy(AbstractNode):
 
 
 class Aggregation(AbstractNode):
-    def __init__(self, gd, aggs):
-        self.gd = gd
-        self.aggs = aggs
+    def __init__(self, nid):
+        self.id = nid
+        self.df = None
+        self.aggs = []
         self.value = None
 
     async def accept(self, visitor, data):
@@ -38,7 +40,8 @@ class Aggregation(AbstractNode):
 
 
 class CountNode(AbstractNode):
-    def __init__(self, column):
+    def __init__(self, nid, column):
+        self.id = nid
         self.column = column
         self.value = None
 
@@ -48,8 +51,10 @@ class CountNode(AbstractNode):
     def is_leaf(self):
         return False
 
+
 class AvgNode(AbstractNode):
-    def __init__(self, column):
+    def __init__(self, nid, column):
+        self.id = nid
         self.column = column
         self.value = None
 
@@ -61,7 +66,8 @@ class AvgNode(AbstractNode):
 
 
 class MinNode(AbstractNode):
-    def __init__(self, column):
+    def __init__(self, nid, column):
+        self.id = nid
         self.column = column
         self.value = None
 
@@ -73,7 +79,21 @@ class MinNode(AbstractNode):
 
 
 class MaxNode(AbstractNode):
-    def __init__(self, column):
+    def __init__(self, nid, column):
+        self.id = nid
+        self.column = column
+        self.value = None
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
+
+    def is_leaf(self):
+        return False
+
+
+class SumNode(AbstractNode):
+    def __init__(self, nid, column):
+        self.id = nid
         self.column = column
         self.value = None
 
@@ -85,7 +105,8 @@ class MaxNode(AbstractNode):
 
 
 class LocalCSVSource(AbstractNode):
-    def __init__(self, source, separator=","):
+    def __init__(self, nid, source, separator=","):
+        self.id = nid
         self.separator = separator
         self.source = source
         self.value = None
@@ -98,7 +119,8 @@ class LocalCSVSource(AbstractNode):
 
 
 class CSVSource(AbstractNode):
-    def __init__(self, source, separator=","):
+    def __init__(self, nid, source, separator=","):
+        self.id = nid
         self.separator = separator
         self.source = source
         self.value = None
@@ -110,9 +132,26 @@ class CSVSource(AbstractNode):
         return False
 
 
+class JDBCSource(AbstractNode):
+    def __init__(self, nid, url, table, user, password):
+        self.id = nid
+        self.url = url
+        self.user = user
+        self.password = password
+        self.table = table
+        self.value = None
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
+
+    def is_leaf(self):
+        return False
+
+
 class FilterNode(AbstractNode):
-    def __init__(self, df, condition):
-        self.df = df
+    def __init__(self, nid, condition):
+        self.id = nid
+        self.df = None
         self.condition = condition
         self.value = None
 
@@ -123,10 +162,24 @@ class FilterNode(AbstractNode):
         return False
 
 
+class SubtractionNode(AbstractNode):
+    def __init__(self, nid):
+        self.id = nid
+        self.df = None
+        self.df2 = None
+        self.value = None
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
+
+    def is_leaf(self):
+        return False
+
+
 class TableNode(AbstractNode):
-    def __init__(self, a, id):
-        self.a = a
-        self.id = id
+    def __init__(self, nid):
+        self.id = nid
+        self.df = None
 
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
