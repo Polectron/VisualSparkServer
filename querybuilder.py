@@ -1,5 +1,5 @@
-from nodes.nodes import LocalCSVSource, JDBCSource, FilterNode, TableNode, Aggregation, AvgNode, SumNode, MinNode, \
-    MaxNode, GroupBy, SubtractionNode
+from nodes.nodes import JDBCSource, FilterNode, TableNode, Aggregation, AvgNode, SumNode, MinNode, \
+    MaxNode, GroupBy, SubtractionNode, CSVSource
 
 
 def get_control(name, controls):
@@ -18,7 +18,7 @@ class QueryBuilder:
             if node["type"] == "csvsource":
                 source = list(filter(lambda x: x["name"] == "source", node["controls"]))[0]["value"]
                 separator = list(filter(lambda x: x["name"] == "separator", node["controls"]))[0]["value"]
-                n = LocalCSVSource(node["id"], source, separator)
+                n = CSVSource(node["id"], source, separator)
             elif node["type"] == "jdbcsource":
                 url = list(filter(lambda x: x["name"] == "url", node["controls"]))[0]["value"]
                 table = list(filter(lambda x: x["name"] == "table", node["controls"]))[0]["value"]
@@ -58,7 +58,7 @@ class QueryBuilder:
                 if node["type"] == "subtraction":
                     query[node["id"]].df2 = query[node["inputs"][1]["connects_to"][0]]
 
-            if "aggs" in node:
+            if node["aggs"]:
                 for agg in node["aggs"]["connects_to"]:
                     query[node["id"]].aggs.append(query[agg])
 
