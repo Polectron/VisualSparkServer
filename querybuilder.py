@@ -1,5 +1,5 @@
 from nodes.nodes import JDBCSource, FilterNode, TableNode, Aggregation, AvgNode, SumNode, MinNode, \
-    MaxNode, GroupBy, SubtractionNode, CSVSource
+    MaxNode, GroupBy, SubtractionNode, CSVSource, MongoDBSource
 
 
 def get_control(name, controls):
@@ -20,11 +20,20 @@ class QueryBuilder:
                 separator = list(filter(lambda x: x["name"] == "separator", node["controls"]))[0]["value"]
                 n = CSVSource(node["id"], source, separator)
             elif node["type"] == "jdbcsource":
-                url = list(filter(lambda x: x["name"] == "url", node["controls"]))[0]["value"]
-                table = list(filter(lambda x: x["name"] == "table", node["controls"]))[0]["value"]
+                driver = get_control("driver", node["controls"])
+                url = get_control("url", node["controls"])
+                database = get_control("database", node["controls"])
+                table = get_control("table", node["controls"])
                 username = get_control("user", node["controls"])
                 password = get_control("password", node["controls"])
-                n = JDBCSource(node["id"], url, table, username, password)
+                n = JDBCSource(node["id"], driver, url, database, table, username, password)
+            elif node["type"] == "mongodbsource":
+                url = get_control("url", node["controls"])
+                database = get_control("database", node["controls"])
+                table = get_control("table", node["controls"])
+                username = get_control("user", node["controls"])
+                password = get_control("password", node["controls"])
+                n = MongoDBSource(node["id"], url, database, table, username, password)
             elif node["type"] == "filter":
                 condition = list(filter(lambda x: x["name"] == "condition", node["controls"]))[0]["value"]
                 n = FilterNode(node["id"], condition)

@@ -59,7 +59,7 @@ class QueryServer:
 
             await websocket.send(json.dumps({"type": "info", "data": "running query"}))
 
-            ne = NodeExecutor(self.ctx, tree, int(command["limit"]), websocket)
+            ne = NodeExecutor(self.ctx, tree, websocket)
 
             await self.queue.put(ne)
 
@@ -90,6 +90,6 @@ class QueryServer:
 
 
 if __name__ == "__main__":
-    ctx = SparkSession.builder.config("spark.jars.packages", "mysql:mysql-connector-java:8.0.22").getOrCreate()
+    ctx = SparkSession.builder.config("spark.jars.packages", "mysql:mysql-connector-java:8.0.22,org.postgresql:postgresql:42.2.18,org.mongodb.spark:mongo-spark-connector_2.12:3.0.0").getOrCreate()
     server = QueryServer(ctx)
     server.start_server()

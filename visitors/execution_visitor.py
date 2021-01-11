@@ -1,16 +1,14 @@
 import json
 import urllib.request
-
-from pyspark.sql import DataFrame
+import urllib.parse
 
 from nodes.nodes import *
 from visitors import visitor
 
 
 class ExecutionVisitor:
-    def __init__(self, ctx, limit, websocket):
+    def __init__(self, ctx, websocket):
         self.ctx = ctx
-        self.limit = limit
         self.websocket = websocket
 
     @visitor.on('node')
@@ -21,10 +19,22 @@ class ExecutionVisitor:
     async def visit(self, node: JDBCSource, data):
         if node.value is None:
             # TODO: Add connection support for psql
-            db = node.url.split(":")[0]
-            node.value = self.ctx.read.jdbc(node.url, node.table,
-                                            properties={"driver": "com.mysql.cj.jdbc.Driver", "serverTimezone": "UTC",
+
+            if node.driver == "mysql":
+                driver = "com.mysql.cj.jdbc.Driver"
+            else:
+                driver = "org.postgresql.Driver"
+
+            uri = f"jdbc:{node.driver}://{node.url}/{node.database}"
+            node.value = self.ctx.read.jdbc(uri, node.table,
+                                            properties={"driver": driver, "serverTimezone": "UTC",
                                                         "user": node.user, "password": node.password})
+
+    @visitor.when(MongoDBSource)
+    async def visit(self, node: MongoDBSource, data):
+        if node.value is None:
+            url = f"mongodb://{urllib.parse.quote(node.user)}:{urllib.parse.quote(node.password)}@{node.url}/{node.database}.{node.table}?authSource=admin"
+            node.value = self.ctx.read.format("mongo").option("uri", url).load()
 
     @visitor.when(LocalCSVSource)
     async def visit(self, node: CSVSource, data):
@@ -37,7 +47,7 @@ class ExecutionVisitor:
         if node.value is None:
             file_name, headers = urllib.request.urlretrieve(node.source)
             node.value = self.ctx.read.format('csv').options(header=True, inferSchema=True,
-                                                             sep=node.separator).load(file_name)
+                                                         sep=node.separator).load(file_name)
 
     @visitor.when(GroupBy)
     async def visit(self, node: GroupBy, data):
@@ -102,10 +112,7 @@ class ExecutionVisitor:
     @visitor.when(TableNode)
     async def visit(self, node: TableNode, data):
         await node.df.accept(self, data)
-        v = list(map(lambda row: row.asDict(), node.df.value.limit(self.limit).collect()))
+        # v = list(map(lambda row: row.asDict(), node.df.value.collect()))
+        v = list(map(lambda x: json.loads(x), node.df.value.toJSON().collect()))
         message = {"type": "table", "id": node.id, "data": v}
-
-        if self.websocket is not None:
-            await self.websocket.send(json.dumps(message))
-        else:
-            print(json.dumps(message))
+        await self.websocket.send(json.dumps(message))

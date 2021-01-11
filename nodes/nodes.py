@@ -133,11 +133,30 @@ class CSVSource(AbstractNode):
 
 
 class JDBCSource(AbstractNode):
-    def __init__(self, nid, url, table, user, password):
+    def __init__(self, nid, driver, url, database, table, user, password):
+        self.id = nid
+        self.driver = driver
+        self.url = url
+        self.user = user
+        self.password = password
+        self.database = database
+        self.table = table
+        self.value = None
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
+
+    def is_leaf(self):
+        return False
+
+
+class MongoDBSource(AbstractNode):
+    def __init__(self, nid, url, database, table, user, password):
         self.id = nid
         self.url = url
         self.user = user
         self.password = password
+        self.database = database
         self.table = table
         self.value = None
 

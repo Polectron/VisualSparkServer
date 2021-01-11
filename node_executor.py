@@ -1,13 +1,13 @@
 import asyncio
+import json
 
 from visitors.execution_visitor import ExecutionVisitor
 
 
 class NodeExecutor:
-    def __init__(self, ctx, tree, limit, websocket):
+    def __init__(self, ctx, tree, websocket):
         self.ctx = ctx
         self.tree = tree
-        self.limit = limit
         self.websocket = websocket
 
     async def find_leafs(self):
@@ -20,8 +20,10 @@ class NodeExecutor:
 
     async def run(self):
         leafs = await self.find_leafs()
-        visitor = ExecutionVisitor(self.ctx, self.limit, self.websocket)
-
-        for head in leafs:
-            print(f"visiting {head}")
-            await visitor.visit(head, None)
+        visitor = ExecutionVisitor(self.ctx, self.websocket)
+        try:
+            for head in leafs:
+                print(f"visiting {head}")
+                await visitor.visit(head, None)
+        except Exception as e:
+            await self.websocket.send(json.dumps({"type": "error", "title": "Exception during query execution", "data": str(e)}))
