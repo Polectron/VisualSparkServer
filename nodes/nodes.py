@@ -2,7 +2,10 @@ from abc import ABC, abstractmethod
 
 
 class AbstractNode(ABC):
-    @abstractmethod
+    def __init__(self, nid):
+        self.id = nid
+        self.df = None
+
     def is_leaf(self):
         return False
 
@@ -21,9 +24,6 @@ class GroupBy(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
-
 
 class Aggregation(AbstractNode):
     def __init__(self, nid):
@@ -35,9 +35,6 @@ class Aggregation(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
-
 
 class CountNode(AbstractNode):
     def __init__(self, nid, column):
@@ -47,9 +44,6 @@ class CountNode(AbstractNode):
 
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
-
-    def is_leaf(self):
-        return False
 
 
 class AvgNode(AbstractNode):
@@ -61,9 +55,6 @@ class AvgNode(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
-
 
 class MinNode(AbstractNode):
     def __init__(self, nid, column):
@@ -73,9 +64,6 @@ class MinNode(AbstractNode):
 
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
-
-    def is_leaf(self):
-        return False
 
 
 class MaxNode(AbstractNode):
@@ -87,9 +75,6 @@ class MaxNode(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
-
 
 class SumNode(AbstractNode):
     def __init__(self, nid, column):
@@ -99,9 +84,6 @@ class SumNode(AbstractNode):
 
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
-
-    def is_leaf(self):
-        return False
 
 
 class LocalCSVSource(AbstractNode):
@@ -114,9 +96,6 @@ class LocalCSVSource(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
-
 
 class CSVSource(AbstractNode):
     def __init__(self, nid, source, separator=","):
@@ -127,9 +106,6 @@ class CSVSource(AbstractNode):
 
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
-
-    def is_leaf(self):
-        return False
 
 
 class JDBCSource(AbstractNode):
@@ -146,9 +122,6 @@ class JDBCSource(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
-
 
 class MongoDBSource(AbstractNode):
     def __init__(self, nid, url, database, table, user, password):
@@ -163,9 +136,6 @@ class MongoDBSource(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
-
 
 class FilterNode(AbstractNode):
     def __init__(self, nid, condition):
@@ -177,8 +147,27 @@ class FilterNode(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return False
+
+class LimitNode(AbstractNode):
+    def __init__(self, nid, limit: int):
+        self.id = nid
+        self.df = None
+        self.limit = limit
+        self.value = None
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
+
+
+class SampleNode(AbstractNode):
+    def __init__(self, nid, portion: int):
+        self.id = nid
+        self.df = None
+        self.portion = portion
+        self.value = None
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
 
 
 class SubtractionNode(AbstractNode):
@@ -191,17 +180,28 @@ class SubtractionNode(AbstractNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
+
+class OutputNode(AbstractNode, ABC):
     def is_leaf(self):
-        return False
+        return True
 
 
-class TableNode(AbstractNode):
-    def __init__(self, nid):
-        self.id = nid
-        self.df = None
-
+class TableNode(OutputNode):
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
 
-    def is_leaf(self):
-        return True
+
+class CounterNode(OutputNode):
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
+
+
+class MapNode(OutputNode):
+    def __init__(self, nid, latitude: str, longitude: str, color: str):
+        super().__init__(nid)
+        self.latitude = latitude
+        self.longitude = longitude
+        self.color = color
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)

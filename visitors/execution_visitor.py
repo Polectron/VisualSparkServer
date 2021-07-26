@@ -72,6 +72,12 @@ class ExecutionVisitor:
         if node.value is None:
             node.value = count(node.column)
 
+    @visitor.when(SumNode)
+    async def visit(self, node: AvgNode, data):
+        from pyspark.sql.functions import sum
+        if node.value is None:
+            node.value = sum(node.column)
+
     @visitor.when(AvgNode)
     async def visit(self, node: AvgNode, data):
         from pyspark.sql.functions import avg
@@ -90,17 +96,17 @@ class ExecutionVisitor:
         if node.value is None:
             node.value = max(node.column)
 
-    @visitor.when(SumNode)
-    async def visit(self, node: AvgNode, data):
-        from pyspark.sql.functions import sum
-        if node.value is None:
-            node.value = sum(node.column)
-
     @visitor.when(FilterNode)
     async def visit(self, node: FilterNode, data):
         if node.value is None:
             await node.df.accept(self, data)
             node.value = node.df.value.filter(node.condition)
+
+    @visitor.when(LimitNode)
+    async def visit(self, node: LimitNode, data):
+        if node.value is None:
+            await node.df.accept(self, data)
+            node.value = node.df.value.limit(node.limit)
 
     @visitor.when(SubtractionNode)
     async def visit(self, node: SubtractionNode, data):
@@ -115,4 +121,19 @@ class ExecutionVisitor:
         # v = list(map(lambda row: row.asDict(), node.df.value.collect()))
         v = list(map(lambda x: json.loads(x), node.df.value.toJSON().collect()))
         message = {"type": "table", "id": node.id, "data": v}
+        await self.websocket.send(json.dumps(message))
+
+    @visitor.when(CounterNode)
+    async def visit(self, node: CounterNode, data):
+        await node.df.accept(self, data)
+        v = node.df.value.count()
+        message = {"type": "count", "id": node.id, "data": v}
+        await self.websocket.send(json.dumps(message))
+
+    @visitor.when(MapNode)
+    async def visit(self, node: MapNode, data):
+        await node.df.accept(self, data)
+        # v = list(map(lambda row: row.asDict(), node.df.value.collect()))
+        v = list(map(lambda x: json.loads(x), node.df.value.toJSON().collect()))
+        message = {"type": "map", "id": node.id, "data": v, "latitude": node.latitude, "longitude": node.longitude, "color": node.color}
         await self.websocket.send(json.dumps(message))
