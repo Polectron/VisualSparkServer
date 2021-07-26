@@ -1,5 +1,5 @@
-from nodes.nodes import JDBCSource, FilterNode, TableNode, Aggregation, AvgNode, SumNode, MinNode, \
-    MaxNode, GroupBy, SubtractionNode, CSVSource, MongoDBSource
+from nodes.nodes import AbstractNode, CountNode, CounterNode, JDBCSource, FilterNode, MapNode, TableNode, Aggregation, AvgNode, SumNode, MinNode, \
+    MaxNode, GroupBy, SubtractionNode, CSVSource, MongoDBSource, LimitNode
 
 
 def get_control(name, controls):
@@ -11,10 +11,11 @@ class QueryBuilder:
         self.nodes = nodes
 
     def build_query(self):
-        query = []
+        query: dict[int, AbstractNode] = {}
 
-        for node in self.nodes:
-            n = None
+        for node in self.nodes.values():
+            n: AbstractNode
+            print(node)
             if node["type"] == "csvsource":
                 source = list(filter(lambda x: x["name"] == "source", node["controls"]))[0]["value"]
                 separator = list(filter(lambda x: x["name"] == "separator", node["controls"]))[0]["value"]
@@ -39,13 +40,14 @@ class QueryBuilder:
                 n = FilterNode(node["id"], condition)
             elif node["type"] == "subtraction":
                 n = SubtractionNode(node["id"])
-            elif node["type"] == "table":
-                n = TableNode(node["id"])
             elif node["type"] == "groupby":
                 columns = list(map(lambda x: x.strip(), get_control("columns", node["controls"]).split(",")))
                 n = GroupBy(node["id"], columns)
             elif node["type"] == "aggregation":
                 n = Aggregation(node["id"])
+            elif node["type"] == "count":
+                column = list(filter(lambda x: x["name"] == "column", node["controls"]))[0]["value"]
+                n = CountNode(node["id"], column)
             elif node["type"] == "sum":
                 column = list(filter(lambda x: x["name"] == "column", node["controls"]))[0]["value"]
                 n = SumNode(node["id"], column)
@@ -58,10 +60,23 @@ class QueryBuilder:
             elif node["type"] == "max":
                 column = list(filter(lambda x: x["name"] == "column", node["controls"]))[0]["value"]
                 n = MaxNode(node["id"], column)
+            elif node["type"] == "limit":
+                limit = get_control("limit", node["controls"])
+                n = LimitNode(node["id"], limit)
+            elif node["type"] == "table":
+                n = TableNode(node["id"])
+            elif node["type"] == "counter":
+                n = CounterNode(node["id"])
+            elif node["type"] == "map":
+                latitude = get_control("latitude", node["controls"])
+                longitude = get_control("longitude", node["controls"])
+                color = get_control("color", node["controls"])
+                n = MapNode(node["id"], latitude, longitude, color)
+            else:
+                raise NotImplementedError(f"{node['type']} not implemented")
+            query[n.id] = n
 
-            query.append(n)
-
-        for node in self.nodes:
+        for node in self.nodes.values():
             if "inputs" in node and len(node["inputs"]) > 0:
                 query[node["id"]].df = query[node["inputs"][0]["connects_to"][0]]
                 if node["type"] == "subtraction":

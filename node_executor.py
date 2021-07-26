@@ -1,5 +1,6 @@
 import asyncio
 import json
+from nodes.nodes import AbstractNode
 
 from visitors.execution_visitor import ExecutionVisitor
 
@@ -7,14 +8,14 @@ from visitors.execution_visitor import ExecutionVisitor
 class NodeExecutor:
     def __init__(self, ctx, tree, websocket):
         self.ctx = ctx
-        self.tree = tree
+        self.tree: dict[int, AbstractNode] = tree
         self.websocket = websocket
 
     async def find_leafs(self):
         leafs = []
-        for n in self.tree:
-            if n.is_leaf():
-                leafs.append(n)
+        for node in self.tree.values():
+            if node.is_leaf():
+                leafs.append(node)
 
         return leafs
 
