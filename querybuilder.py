@@ -1,39 +1,37 @@
-from nodes.nodes import AbstractNode, CountNode, CounterNode, JDBCSource, FilterNode, MapNode, TableNode, Aggregation, AvgNode, SumNode, MinNode, \
+from nodes.nodes import AbstractNode, CountNode, CounterNode, GraphNode, JDBCSource, FilterNode, MapNode, TableNode, Aggregation, AvgNode, SumNode, MinNode, \
     MaxNode, GroupBy, SubtractionNode, CSVSource, MongoDBSource, LimitNode
-
-
-def get_control(name, controls):
-    return list(filter(lambda x: x["name"] == name, controls))[0]["value"]
-
 
 class QueryBuilder:
     def __init__(self, nodes):
         self.nodes = nodes
+
+    @staticmethod
+    def get_control(name, controls):
+        return list(filter(lambda x: x["name"] == name, controls))[0]["value"]
 
     def build_query(self):
         query: dict[int, AbstractNode] = {}
 
         for node in self.nodes.values():
             n: AbstractNode
-            print(node)
             if node["type"] == "csvsource":
                 source = list(filter(lambda x: x["name"] == "source", node["controls"]))[0]["value"]
                 separator = list(filter(lambda x: x["name"] == "separator", node["controls"]))[0]["value"]
                 n = CSVSource(node["id"], source, separator)
             elif node["type"] == "jdbcsource":
-                driver = get_control("driver", node["controls"])
-                url = get_control("url", node["controls"])
-                database = get_control("database", node["controls"])
-                table = get_control("table", node["controls"])
-                username = get_control("user", node["controls"])
-                password = get_control("password", node["controls"])
+                driver = self.get_control("driver", node["controls"])
+                url = self.get_control("url", node["controls"])
+                database = self.get_control("database", node["controls"])
+                table = self.get_control("table", node["controls"])
+                username = self.get_control("user", node["controls"])
+                password = self.get_control("password", node["controls"])
                 n = JDBCSource(node["id"], driver, url, database, table, username, password)
             elif node["type"] == "mongodbsource":
-                url = get_control("url", node["controls"])
-                database = get_control("database", node["controls"])
-                table = get_control("table", node["controls"])
-                username = get_control("user", node["controls"])
-                password = get_control("password", node["controls"])
+                url = self.get_control("url", node["controls"])
+                database = self.get_control("database", node["controls"])
+                table = self.get_control("table", node["controls"])
+                username = self.get_control("user", node["controls"])
+                password = self.get_control("password", node["controls"])
                 n = MongoDBSource(node["id"], url, database, table, username, password)
             elif node["type"] == "filter":
                 condition = list(filter(lambda x: x["name"] == "condition", node["controls"]))[0]["value"]
@@ -41,7 +39,7 @@ class QueryBuilder:
             elif node["type"] == "subtraction":
                 n = SubtractionNode(node["id"])
             elif node["type"] == "groupby":
-                columns = list(map(lambda x: x.strip(), get_control("columns", node["controls"]).split(",")))
+                columns = list(map(lambda x: x.strip(), self.get_control("columns", node["controls"]).split(",")))
                 n = GroupBy(node["id"], columns)
             elif node["type"] == "aggregation":
                 n = Aggregation(node["id"])
@@ -61,17 +59,22 @@ class QueryBuilder:
                 column = list(filter(lambda x: x["name"] == "column", node["controls"]))[0]["value"]
                 n = MaxNode(node["id"], column)
             elif node["type"] == "limit":
-                limit = get_control("limit", node["controls"])
+                limit = self.get_control("limit", node["controls"])
                 n = LimitNode(node["id"], limit)
             elif node["type"] == "table":
                 n = TableNode(node["id"])
             elif node["type"] == "counter":
                 n = CounterNode(node["id"])
             elif node["type"] == "map":
-                latitude = get_control("latitude", node["controls"])
-                longitude = get_control("longitude", node["controls"])
-                color = get_control("color", node["controls"])
+                latitude = self.get_control("latitude", node["controls"])
+                longitude = self.get_control("longitude", node["controls"])
+                color = self.get_control("color", node["controls"])
                 n = MapNode(node["id"], latitude, longitude, color)
+            elif node["type"] == "graph":
+                x = self.get_control("x", node["controls"])
+                y = self.get_control("y", node["controls"])
+                type = self.get_control("type", node["controls"])
+                n = GraphNode(node["id"], x, y, type)
             else:
                 raise NotImplementedError(f"{node['type']} not implemented")
             query[n.id] = n

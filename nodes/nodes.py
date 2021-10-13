@@ -205,3 +205,14 @@ class MapNode(OutputNode):
 
     async def accept(self, visitor, data):
         await visitor.visit(self, data)
+
+
+class GraphNode(OutputNode):
+    def __init__(self, nid, x: str, y: str, type: str):
+        super().__init__(nid)
+        self.x = x
+        self.y = y
+        self.type = type
+
+    async def accept(self, visitor, data):
+        await visitor.visit(self, data)
