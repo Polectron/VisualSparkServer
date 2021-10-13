@@ -18,34 +18,6 @@ class QueryServer:
         self.ctx = ctx
         self.queue = asyncio.Queue()
 
-    async def test(self, websocket, message):
-        command = json.loads(message)
-
-        if command["action"] == "columns":
-
-            file_name, headers = urllib.request.urlretrieve(command["source"])
-            df = self.ctx.read.format('csv').options(header=True, inferSchema=True,
-                                                     sep=";").load(file_name)
-
-            response = {"type": "columns", "data": df.columns}
-            await websocket.send(json.dumps(response))
-        elif command["action"] == "query":
-
-            cn = CSVSource("https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/9689.csv", separator=";")
-            fn = FilterNode(cn, "Provincias != 'Total Nacional'")
-            fn2 = FilterNode(fn, "`Grupo quinquenal de edad` != 'Total'")
-            gb = GroupBy(fn, ["Sexo", "Provincias"])
-            ag = Aggregation(gb, [MinNode("Total"), AvgNode("Total"), MaxNode("Total")])
-            pn = TableNode(fn2, 1)
-            pn2 = TableNode(ag, 2)
-
-            tree = [cn, fn, fn2, gb, ag, pn2, pn]
-
-            await websocket.send(json.dumps({"type": "info", "data": "running query"}))
-
-            ne = NodeExecutor(self.ctx, tree, int(command["limit"]), websocket)
-            await ne.run()
-
     async def producer_handler(self, websocket, path):
         async for message in websocket:
             # produce an item
