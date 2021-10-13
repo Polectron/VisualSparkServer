@@ -49,24 +49,23 @@ class QueryServer:
     async def producer_handler(self, websocket, path):
         async for message in websocket:
             # produce an item
-            print('producing {}'.format(message))
+            try:
+                print('producing {}'.format(message))
 
-            command = json.loads(message)
+                command = json.loads(message)
+                qb = QueryBuilder(command["nodes"])
+                tree = qb.build_query()
+                await websocket.send(json.dumps({"type": "info", "data": "running query"}))
 
-            qb = QueryBuilder(command["nodes"])
-
-            tree = qb.build_query()
-
-            await websocket.send(json.dumps({"type": "info", "data": "running query"}))
-
-            ne = NodeExecutor(self.ctx, tree, websocket)
-
-            await self.queue.put(ne)
+                ne = NodeExecutor(self.ctx, tree, websocket)
+                await self.queue.put(ne)
+            except Exception as e:
+                await websocket.send(json.dumps({"type": "error", "title": "Exception during query execution", "data": str(e)}))
 
     async def consumer_handler(self, websocket, path):
         while True:
             # wait for an item from the producer
-            item = await self.queue.get()
+            item: NodeExecutor = await self.queue.get()
 
             # process the item
             print('consuming {}...'.format(item))
