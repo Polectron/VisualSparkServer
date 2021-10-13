@@ -3,7 +3,8 @@ import urllib.request
 import urllib.parse
 
 from nodes.nodes import *
-from visitors import visitor
+
+from functools import singledispatchmethod
 
 
 class ExecutionVisitor:
@@ -11,12 +12,12 @@ class ExecutionVisitor:
         self.ctx = ctx
         self.websocket = websocket
 
-    @visitor.on('node')
-    def visit(self, node):
+    @singledispatchmethod
+    async def visit(self, node):
         pass
 
-    @visitor.when(JDBCSource)
-    async def visit(self, node: JDBCSource, data):
+    @visit.register
+    async def _(self, node: JDBCSource, data):
         if node.value is None:
             # TODO: Add connection support for psql
 
@@ -30,33 +31,33 @@ class ExecutionVisitor:
                                             properties={"driver": driver, "serverTimezone": "UTC",
                                                         "user": node.user, "password": node.password})
 
-    @visitor.when(MongoDBSource)
-    async def visit(self, node: MongoDBSource, data):
+    @visit.register
+    async def _(self, node: MongoDBSource, data):
         if node.value is None:
             url = f"mongodb://{urllib.parse.quote(node.user)}:{urllib.parse.quote(node.password)}@{node.url}/{node.database}.{node.table}?authSource=admin"
             node.value = self.ctx.read.format("mongo").option("uri", url).load()
 
-    @visitor.when(LocalCSVSource)
-    async def visit(self, node: CSVSource, data):
+    @visit.register
+    async def _(self, node: CSVSource, data):
         if node.value is None:
             node.value = self.ctx.read.format('csv').options(header=True, inferSchema=True,
                                                              sep=node.separator).load(node.source)
 
-    @visitor.when(CSVSource)
-    async def visit(self, node: CSVSource, data):
+    @visit.register
+    async def _(self, node: CSVSource, data):
         if node.value is None:
             file_name, headers = urllib.request.urlretrieve(node.source)
             node.value = self.ctx.read.format('csv').options(header=True, inferSchema=True,
                                                          sep=node.separator).load(file_name)
 
-    @visitor.when(GroupBy)
-    async def visit(self, node: GroupBy, data):
+    @visit.register
+    async def _(self, node: GroupBy, data):
         if node.value is None:
             await node.df.accept(self, data)
             node.value = node.df.value.groupBy(node.sources)
 
-    @visitor.when(Aggregation)
-    async def visit(self, node: Aggregation, data):
+    @visit.register
+    async def _(self, node: Aggregation, data):
         if node.value is None:
             await node.df.accept(self, data)
             cols = []
@@ -66,74 +67,82 @@ class ExecutionVisitor:
 
             node.value = node.df.value.agg(*cols)
 
-    @visitor.when(CountNode)
-    async def visit(self, node: CountNode, data):
+    @visit.register
+    async def _(self, node: CountNode, data):
         from pyspark.sql.functions import count
         if node.value is None:
             node.value = count(node.column)
 
-    @visitor.when(SumNode)
-    async def visit(self, node: AvgNode, data):
+    @visit.register
+    async def _(self, node: AvgNode, data):
         from pyspark.sql.functions import sum
         if node.value is None:
             node.value = sum(node.column)
 
-    @visitor.when(AvgNode)
-    async def visit(self, node: AvgNode, data):
+    @visit.register
+    async def _(self, node: AvgNode, data):
         from pyspark.sql.functions import avg
         if node.value is None:
             node.value = avg(node.column)
 
-    @visitor.when(MinNode)
-    async def visit(self, node: AvgNode, data):
+    @visit.register
+    async def _(self, node: AvgNode, data):
         from pyspark.sql.functions import min
         if node.value is None:
             node.value = min(node.column)
 
-    @visitor.when(MaxNode)
-    async def visit(self, node: AvgNode, data):
+    @visit.register
+    async def _(self, node: AvgNode, data):
         from pyspark.sql.functions import max
         if node.value is None:
             node.value = max(node.column)
 
-    @visitor.when(FilterNode)
-    async def visit(self, node: FilterNode, data):
+    @visit.register
+    async def _(self, node: FilterNode, data):
         if node.value is None:
             await node.df.accept(self, data)
             node.value = node.df.value.filter(node.condition)
 
-    @visitor.when(LimitNode)
-    async def visit(self, node: LimitNode, data):
+    @visit.register
+    async def _(self, node: LimitNode, data):
         if node.value is None:
             await node.df.accept(self, data)
             node.value = node.df.value.limit(node.limit)
 
-    @visitor.when(SubtractionNode)
-    async def visit(self, node: SubtractionNode, data):
+    @visit.register
+    async def _(self, node: SubtractionNode, data):
         if node.value is None:
             await node.df.accept(self, data)
             await node.df2.accept(self, data)
             node.value = node.df.value.subtract(node.df2.value)
 
-    @visitor.when(TableNode)
-    async def visit(self, node: TableNode, data):
+    @visit.register
+    async def _(self, node: TableNode, data):
         await node.df.accept(self, data)
         # v = list(map(lambda row: row.asDict(), node.df.value.collect()))
         v = list(map(lambda x: json.loads(x), node.df.value.toJSON().collect()))
         message = {"type": "table", "id": node.id, "data": v}
         await self.websocket.send(json.dumps(message))
 
-    @visitor.when(CounterNode)
-    async def visit(self, node: CounterNode, data):
+    @visit.register
+    async def _(self, node: CounterNode, data):
         await node.df.accept(self, data)
         v = node.df.value.count()
-        message = {"type": "count", "id": node.id, "data": v}
+        message = {"type": "counter", "id": node.id, "data": v}
         await self.websocket.send(json.dumps(message))
 
-    @visitor.when(MapNode)
-    async def visit(self, node: MapNode, data):
+    @visit.register
+    async def _(self, node: MapNode, data):
         await node.df.accept(self, data)
         # v = list(map(lambda row: row.asDict(), node.df.value.collect()))
         v = list(map(lambda x: json.loads(x), node.df.value.toJSON().collect()))
         message = {"type": "map", "id": node.id, "data": v, "latitude": node.latitude, "longitude": node.longitude, "color": node.color}
+        await self.websocket.send(json.dumps(message))
+
+    @visit.register
+    async def _(self, node: GraphNode, data):
+        await node.df.accept(self, data)
+        # v = list(map(lambda row: row.asDict(), node.df.value.collect()))
+        v = list(map(lambda x: json.loads(x), node.df.value.toJSON().collect()))
+        message = {"type": "graph", "id": node.id, "data": v, "x": node.x, "y": node.y, "graph_type": node.type}
         await self.websocket.send(json.dumps(message))
